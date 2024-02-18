@@ -1,12 +1,14 @@
 import requests
+import smtplib
 from geojson import GeoJSON, loads
 from shapely import from_geojson
 from shapely.geometry import  Point, GeometryCollection
-
-BASE_URL = "https://3qbqr98twd.execute-api.us-west-2.amazonaws.com/test"
+import smtplib
+from email.mime.text import MIMEText
+from config import API_BASE_URL, SMTP_EMAIL, SMTP_PASSWORD
 
 def get_clinician_status(clinician_id: int) -> GeoJSON:
-    endpoint = f"{BASE_URL}/clinicianstatus/{clinician_id}"
+    endpoint = f"{API_BASE_URL}/clinicianstatus/{clinician_id}"
     response = requests.get(endpoint)
     info = loads(response.text)
     return info
@@ -29,25 +31,15 @@ def parse_geojson(geo_info: GeoJSON) -> tuple[Point, GeometryCollection]:
 def clinician_outside_zone(location: Point, bounding_zone: GeometryCollection) -> bool:
     return not location.intersects(bounding_zone)
 
+def send_email(subject: str, body: str, to_email: str = SMTP_EMAIL, from_email: str = SMTP_EMAIL):
+    smtp_server = 'smtp.gmail.com'
+    smtp_port = 587 
+    with smtplib.SMTP(smtp_server, smtp_port) as server:
+        server.starttls()
+        server.login(SMTP_EMAIL, SMTP_PASSWORD)
 
-# UNUSED: My own custom implementation of point-in-polygon collision, using the Ray-Casting Algorithm
-# Replaced by the shapely library's intersects() method
-def is_outside_polygon(point: list[float], polygon: list[list[float]]) -> bool:
-    """
-    Cast horizontal ray (to simplify math) from point and check intersection with all lines of the polygon.
-    If intersection count is even -> point is outside, if odd -> point is inside 
-    """
-    x,y = point
-    is_outside = False
-    vert1_x, vert1_y = polygon[0]
-    for vertex in polygon[1:]:
-        vert2_x, vert2_y = vertex
-        if vert1_y == vert2_y:
-            if y == vert1_y and min(vert1_x,vert2_x) <= x <= max(vert1_x, vert2_x):
-                is_outside = not is_outside
-        else:        
-            x_intersection = vert1_x + (vert2_x - vert1_x) * (y-vert1_y) / (vert2_y-vert1_y)
-            if min(vert1_x,vert2_x) <= x_intersection <= max(vert1_x, vert2_x) and x_intersection <= x:
-                is_outside = not is_outside
-        vert1_x, vert1_y = vert2_x, vert2_y  
-    return is_outside
+        email = MIMEText(body)
+        email['From'] = from_email
+        email['To'] = to_email
+        email['Subject'] = subject
+        server.sendmail(from_email, to_email, email.as_string())
