@@ -1,9 +1,11 @@
-# Poll API on regular interval
-for sprinterID in sprinterIDs:
-    sprinter_info = get_sprinter_info(sprinterID)
+import utils
 
-    # Parse response -> Check if sprinter is in Zone
-    if not sprinter_info or is_outside_zone(sprinter_info.location, sprinter_info.zone):
+NUM_EMPLOYEES = 6
 
-# If no response or sprinter outside -> send email
-        send_warning_email(sprinter_info)
+#TODO: Implement Time interval
+
+for i in range(1, NUM_EMPLOYEES+1):
+    geo_info = utils.get_clinician_status(i)
+    if utils.is_clinician_outside_zone(geo_info):
+        # TODO: Implement Email Sending
+        print("Alert! Clinician {i} is outside of their zone!") 
