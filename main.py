@@ -1,15 +1,12 @@
-from utils import get_clinician_status, parse_geojson, clinician_outside_zone, send_email
+from utils import poll_clinician_statuses
+import time
+from config import POLLING_INTERVAL_SECS
 
-NUM_EMPLOYEES = 7
-
-#TODO: Implement Time interval
-
-for i in range(1, NUM_EMPLOYEES+1):
-    geo_info = get_clinician_status(i)
-    #TODO: Implement response validation
-    location, zone = parse_geojson(geo_info)
-    if clinician_outside_zone(location, zone):
-        print(f"ALERT! Clinician {i} is outside of their zone!") 
-        send_email("WARNING: Clinician has exited specified zone", f"Clinician {i} is outside of their zone!") 
-    else:
-        print(f"Clinician {i} is safely in their zone!") 
+if __name__ == "__main__":
+    prev_call_time_secs = time.time()  
+    while True:
+        current_time_secs = time.time()
+        if current_time_secs - prev_call_time_secs >= POLLING_INTERVAL_SECS:
+            poll_clinician_statuses(7)
+            prev_call_time_secs = current_time_secs
+        time.sleep(1)
