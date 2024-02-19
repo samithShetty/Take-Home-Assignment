@@ -36,15 +36,20 @@ def parse_geojson(geo_info: GeoJSON) -> tuple[Point, GeometryCollection]:
     return location, GeometryCollection(zones)
 
 def clinician_outside_zone(location: Point, bounding_zone: GeometryCollection) -> bool:
+    """
+    Determine if clinician is inside their specified zone (inclusive of boundary)
+    """
     return not location.intersects(bounding_zone)
 
 def send_email(subject: str, body: str, to_email: str = EMAIL_INBOX, from_email: str = SMTP_EMAIL):
+    """
+    Use built-in SMTP to send an email 
+    """
     smtp_server = 'smtp.gmail.com'
     smtp_port = 587 
     with smtplib.SMTP(smtp_server, smtp_port) as server:
         server.starttls()
         server.login(SMTP_EMAIL, SMTP_PASSWORD)
-
         email = MIMEText(body)
         email['From'] = from_email
         email['To'] = to_email
@@ -52,15 +57,27 @@ def send_email(subject: str, body: str, to_email: str = EMAIL_INBOX, from_email:
         server.sendmail(from_email, to_email, email.as_string())
 
 def poll_clinician_statuses(num_employees = 6):
+    """
+    Poll and carry out necessary actions for all clinicians based on their current location/status
+    """
     for i in range(1, num_employees+1):
         try:
             geo_info = get_clinician_status(i)
             location, zone = parse_geojson(geo_info)
             if clinician_outside_zone(location, zone):
-                print(f"ALERT! Clinician {i} is outside of their zone!") 
-                send_email(f"ALERT: Clinician {i} has exited specified zone", f"Clinician {i} is outside of their zone!") 
+                print(f"ALERT! Clinician {i} is outside of their zone!")
+                email_body_lines = [
+                    f"Clinician {i} is outside of their expected scheduled zone!",
+                    "For an interactive view of their current location, visit http://geojson.io and paste the following text into the JSON tab:",
+                    str(geo_info)
+                ]
+                send_email(f"ALERT: Clinician {i} is outside of expected scheduled zone", "\n\n".join(email_body_lines)) 
             else:
                 print(f"Clinician {i} is safely in their zone!") 
         except RequestException:
             print(f"ALERT! Location Data for Clinician {i} currently unavailable")
-            send_email(f"ALERT: Clinician {i} currently missing", f"Location Data for Clinician {i} is currently unavailable") 
+            email_body_lines = [
+                f"Location Data for Clinician {i} is currently unavailable",
+                f"Please check status at {API_BASE_URL}/clinicianstatus/{i}"
+            ]
+            send_email(f"ALERT: Location is currently unknown for Clinician {i}", "\n\n".join(email_body_lines)) 
